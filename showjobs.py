@@ -1,3 +1,15 @@
+#!/hpf/tools/centos6/python/2.7.11/bin/python
+################################################################################
+#
+# showjobs - list historical job information
+#
+# To enable job logging set the TORQUE server parameter record_job_info to TRUE
+# Edit this file to set TORQUE_HOME_DIR to the Torque home directory
+# Move or link to this file in a directory in your user's path
+# Run showjobs --help for a brief help message or showjobs --man for a man page
+#
+################################################################################
+
 import argparse
 import collections
 import time
@@ -8,6 +20,7 @@ from datetime import datetime, timedelta
 from lxml import etree
 
 
+# Set TORQUE_HOME_DIR to the Torque home directory
 TORQUE_HOME_DIR = '/opt/torque_job_logs'
 
 
@@ -344,7 +357,6 @@ def all_files():
     :return: list
     """
     return sorted(glob.glob(os.path.join(TORQUE_HOME_DIR, '20*')))
-    # return ['20160910']
 
 
 def get_file_list(args):
@@ -385,11 +397,13 @@ def get_xpath(args):
     :return: str
     """
     xpath = "."
+
     xpath += "[Job_Id='{}']".format(args.job_id) if args.job_id is not None else ''
     xpath += "[queue='{}']".format(args.queue) if args.queue is not None else ''
     xpath += "[egroup='{}']".format(args.group) if args.group is not None else ''
     xpath += "[Account_Name='{}']".format(args.account) if args.account is not None else ''
     xpath += "[euser='{}']".format(args.user) if args.user is not None else ''
+
     return xpath
 
 
