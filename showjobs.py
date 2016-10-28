@@ -495,8 +495,63 @@ def parse_args():
 
 
 def usage():
-    return '''
-This is the showjobs man page.  TODO
+    return '''\
+NAME
+       showjobs - list historical job information
+
+SYNOPSIS
+       showjobs [-u user_name] [-g group_name] [-a account_name] [-q queue_name] [-s start
+       date] [-e end date] [-n days] [-o|--oneonly] [--help] [--man] [[-j] <job id>]
+
+DESCRIPTION
+       The showjobs command is used to list past job information. It searches through the
+       designated job files while filtering according to the specified options. The relevant
+       fields for each job are shown in a multi-line format, with a blank line between jobs.
+
+OPTIONS
+       -a account_name
+           Show only job records matching the specified account.
+
+       -e end_date
+           Restricts the search to job files ending with the specified date. The date is
+           specified in the format YYYY-MM-DD. The default query searches to the latest
+           available job file.
+
+       -g group_name
+           Show only job records matching the specified group.
+
+       [-j] job_id
+           Show only job records matching the specified job id.
+
+       -n days
+           Restricts the number of past job files to search.
+
+       -q queue_name
+           Show only job records matching the specified queue.
+
+       -s start_date
+           Restricts the search to job files starting with the specified date. The date is
+           specified in the format YYYY-MM-DD. The default query searches from the earliest
+           available job file.
+
+       -u user_name
+           Show only job records matching the specified user.
+
+       -o | --oneonly
+           Show only the first job record found. This will mostly be much faster and give the
+           same result as if the flag is omitted if the search is for a specific non-array job
+           or specific array job member.
+
+       -h | --help
+           brief help message
+
+       --man
+           full documentation
+
+EXAMPLE
+       Show job information for job id 220 and restrict the search to the last 4 days.
+
+       showjobs -n 4 -j 220
 '''
 
 
