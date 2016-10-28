@@ -209,7 +209,7 @@ class ElementDisplayer:
         """
         # Example output:
         #   Wed Oct 26 22:37:02 2016
-        return datetime.fromtimestamp(int(date)).strftime('%a %b %d %-d %H:%M%S %Y')
+        return datetime.fromtimestamp(int(date)).strftime('%a %b %d %H:%M;%S %Y')
 
     @staticfunction
     def format_interactive(value):
@@ -232,38 +232,38 @@ class ElementDisplayer:
 
     Note that all fields will be displayed in the order they are given here
     """
-    field_name_to_format_function = collections.OrderedDict({
-        'Job Id': format_default,
-        'Job Name': format_default,
-        'Output File': format_default,
-        'Error File': format_default,
-        'Working Directory': format_default,
-        'Home Directory': format_default,
-        'Submit Arguments': format_default,
-        'User Name': format_default,
-        'Group Name': format_default,
-        'Account Name': format_default,
-        'Queue Name': format_default,
-        'Quality Of Service': format_default,
-        'Architecture': format_default,
-        'Operating System': format_default,
-        'Node Count': format_default,
-        'Wallclock Limit': format_duration,
-        'Wallclock Duration': format_duration,
-        'CPUTime': format_duration,
-        'Memory Used': format_mem,
-        'Memory Limit': format_mem,
-        'vmem Used': format_mem,
-        'vmem Limit': format_mem,
-        'Submit Time': format_date,
-        'Start Time': format_date,
-        'End Time': format_date,
-        'Exit Code': format_default,
-        'Master Host': format_default,
-        'Interactive': format_interactive,
-        'Job Dependencies': format_default,
-        'Job Script': format_default
-    })
+    field_name_to_format_function = collections.OrderedDict([
+        ('Job Id', format_default),
+        ('Job Name', format_default),
+        ('Output File', format_default),
+        ('Error File', format_default),
+        ('Working Directory', format_default),
+        ('Home Directory', format_default),
+        ('Submit Arguments', format_default),
+        ('User Name', format_default),
+        ('Group Name', format_default),
+        ('Account Name', format_default),
+        ('Queue Name', format_default),
+        ('Quality Of Service', format_default),
+        ('Architecture', format_default),
+        ('Operating System', format_default),
+        ('Node Count', format_default),
+        ('Wallclock Limit', format_duration),
+        ('Wallclock Duration', format_duration),
+        ('CPUTime', format_duration),
+        ('Memory Used', format_mem),
+        ('Memory Limit', format_mem),
+        ('vmem Used', format_mem),
+        ('vmem Limit', format_mem),
+        ('Submit Time', format_date),
+        ('Start Time', format_date),
+        ('End Time', format_date),
+        ('Exit Code', format_default),
+        ('Master Host', format_default),
+        ('Interactive', format_interactive),
+        ('Job Dependencies', format_default),
+        ('Job Script', format_default),
+    ])
 
     @classmethod
     def format_field(cls, field, value):
@@ -329,7 +329,7 @@ class ElementDisplayer:
         # Format the fields in dictionary
         dictionary = cls.order_dict(cls.format_dict(dictionary))
 
-        return '\n'.join(cls.display_field(field, value) for field, value in dictionary.items()) + \
+        return ''.join(cls.display_field(field, value) for field, value in dictionary.items()) + \
                '-' * 80 + '\n'
 
 
@@ -406,7 +406,6 @@ def parse_file(file, xpath, one_only):
     :param one_only: whether to return a single result if possible
     :return: list
     """
-    print('parsing file: ' + file)
     elements = []
     with open(file) as f:
         # Create a parser that tries hard to parse broken xml
