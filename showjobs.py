@@ -10,6 +10,8 @@
 #
 ################################################################################
 
+import re
+import pydoc
 import argparse
 import collections
 import time
@@ -27,10 +29,9 @@ TORQUE_HOME_DIR = '/opt/torque_job_logs'
 # TODO: find a better solution?
 def static(func):
     """
-    Decorate func by treating func as a staticmethod,
-      but return the actual callable
+    Decorator like @staticmethod
 
-    Has the same effect as @staticmethod, but can now be callable using func()
+    Decorate func by treating func as a staticmethod, but return the actual callable
     :param func: function
     :return: function
     """
@@ -118,7 +119,7 @@ class ElementParser:
         ('Submit Arguments', parse_path('submit_args')),
         ('User Name', parse_path('euser')),
         ('Group Name', parse_path('egroup')),
-        ('Account Name', parse_path('comp_time')),
+        ('Account Name', parse_path('Account_Name')),
         ('Queue Name', parse_path('queue')),
         ('Quality Of Service', parse_path('Resource_List/qos')),
         ('Architecture', parse_path('Resource_List/arch')),
@@ -190,7 +191,7 @@ class ElementDisplayer:
         :return: str
         """
         td = timedelta(seconds=int(seconds))
-        return ('{:02d}:'.format(td.days) if td.days > 0 else '') + time.strftime('%H:%M:%S', time.gmtime(td.seconds))
+        return ('{}:'.format(td.days) if td.days > 0 else '') + time.strftime('%H:%M:%S', time.gmtime(td.seconds))
 
     @static
     def format_mem(mem):
@@ -225,7 +226,7 @@ class ElementDisplayer:
         """
         # Example output:
         #   Wed Oct 26 22:37:02 2016
-        return datetime.fromtimestamp(int(date)).strftime('%a %b %d %H:%M;%S %Y')
+        return datetime.fromtimestamp(int(date)).strftime('%a %b %d %H:%M:%S %Y')
 
     @static
     def format_interactive(value):
@@ -287,7 +288,7 @@ class ElementDisplayer:
         """
         Format the given value
 
-        Lookup the formatter in field_name_to_format_function, and run it on the input
+        Lookup the formatter in field_name_to_format_function, and run it on value
         :param field: field name
         :param value: field value
         :return: str
@@ -354,6 +355,33 @@ class ElementDisplayer:
 # GET FILES
 ###############################################################################
 
+def log_file_to_date(log_path):
+    """
+    Get the date from a log file's name
+
+    Assume that log file contain a 'YYYYMMDD' string
+    Eg. 20161031 -> datetime object
+    :param log_path: path to a log file (eg. /opt/torque_job_logs/20160930.moab8master)
+    :return: datetime object
+    """
+    # Get the YYYYMMDD part of the log_path
+    # Eg. /opt/torque_job_logs/20160930.moab8master -> 20160930.moab8master -> 20160930
+    filename = re.match(r'(\d\d\d\d\d\d\d\d)', os.path.basename(log_path)).group(1)
+
+    return datetime.strptime(filename, '%Y%m%d')
+
+
+def num_days_ago(log_path):
+    """
+    Return the number of days between today and this log file
+
+    num_days_ago(<today's log file>) == 0
+    :param log_path: path to a log file
+    :return: int
+    """
+    return (datetime.now() - log_file_to_date(log_path)).days
+
+
 def all_files():
     """
     Return a list of all job log files
@@ -373,18 +401,19 @@ def get_file_list(args):
     files = all_files()
 
     if args.days is not None:
-        num_days = int(args.days)
-        if num_days < len(files):
-            # Take the last num_days files
-            files = files[-num_days:]
+        days_requested = int(args.days)
+        # Take only those files that are in the last days_requested
+        files = [file for file in files if num_days_ago(file) < days_requested]
 
+    # Take those files that are later than the given start_date
     if args.start:
         start_date = datetime.strptime(args.start, '%Y-%m-%d')
-        files = [file for file in files if datetime.strptime(file, '%Y%m%d') > start_date]
+        files = [file for file in files if log_file_to_date(file) >= start_date]
 
+    # Take those files that are before than the given start_date
     if args.end:
         end_date = datetime.strptime(args.end, '%Y-%m-%d')
-        files = [file for file in files if datetime.strptime(file, '%Y%m%d') > end_date]
+        files = [file for file in files if log_file_to_date(file) <= end_date]
 
     return files
 
@@ -425,6 +454,7 @@ def parse_file(file, xpath, one_only):
     :return: list
     """
     elements = []
+
     with open(file) as f:
         # Create a parser that tries hard to parse broken xml
         parser = etree.XMLParser(recover=True)
@@ -440,7 +470,7 @@ def parse_file(file, xpath, one_only):
 
                     elements.append(element)
 
-        return elements
+    return elements
 
 
 def parse_files(files, xpath, one_only=False):
@@ -454,7 +484,10 @@ def parse_files(files, xpath, one_only=False):
     """
     elements = []
     for file in files:
-        elements.extend(parse_file(file, xpath, one_only))
+        try:
+            elements.extend(parse_file(file, xpath, one_only))
+        except:
+            pass
 
         if one_only and len(elements) > 0:
             return elements
@@ -463,7 +496,7 @@ def parse_files(files, xpath, one_only=False):
 
 
 ###############################################################################
-# MAIN
+# DISPLAY
 ###############################################################################
 
 def elements_to_str(elements):
@@ -475,6 +508,10 @@ def elements_to_str(elements):
     """
     return '\n'.join(ElementDisplayer.display_dict(ElementParser.parse(e)) for e in elements)
 
+
+###############################################################################
+# QUERY JOBS
+###############################################################################
 
 def query_jobs(args):
     """
@@ -491,7 +528,14 @@ def query_jobs(args):
     return elements_to_str(elements)
 
 
+###############################################################################
+# MAN PAGE
+###############################################################################
+
 def parse_args():
+    """
+    :return: argparse object
+    """
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-u', '--user')
@@ -513,7 +557,10 @@ def parse_args():
 
 
 def usage():
-    return '''\
+    """
+    Send the man page to a pager
+    """
+    pydoc.pager('''\
 NAME
        showjobs - list historical job information
 
@@ -570,14 +617,14 @@ EXAMPLE
        Show job information for job id 220 and restrict the search to the last 4 days.
 
        showjobs -n 4 -j 220
-'''
+''')
 
 
 def main():
     args = parse_args()
 
     if args.man:
-        print(usage())
+        usage()
         quit()
     else:
         print(query_jobs(args))
