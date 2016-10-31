@@ -6,7 +6,7 @@
 # To enable job logging set the TORQUE server parameter record_job_info to TRUE
 # Edit this file to set TORQUE_HOME_DIR to the Torque home directory
 # Move or link to this file in a directory in your user's path
-# Run showjobs --help for a brief help message or showjobs --man for a man page
+# Run showjobs --help for a brief help message or showjobs --man for detailed help
 #
 ################################################################################
 
@@ -25,11 +25,12 @@ TORQUE_HOME_DIR = '/opt/torque_job_logs'
 
 
 # TODO: find a better solution?
-def staticfunction(func):
+def static(func):
     """
     Decorate func by treating func as a staticmethod,
       but return the actual callable
 
+    Has the same effect as @staticmethod, but can now be callable using func()
     :param func: function
     :return: function
     """
@@ -46,10 +47,9 @@ class ElementParser:
     Call ElementParser.parse(element) on an lxml Element to return a dict of field name -> value
 
     Any fields that we can't find will not be defined in the result dict
-    Use 'hasattr(dict, field)' to determine if we have found 'field'
     """
-    @staticfunction
-    def path_lookup(path):
+    @static
+    def parse_path(path):
         """
         Generate a parse function that will look up path in a given element and return the relevant text
 
@@ -67,7 +67,7 @@ class ElementParser:
 
         return parse_function
 
-    @staticfunction
+    @static
     def parse_var_list(var_name):
         """
         Generate a parse function that will parse the Variable_List in the given element for var_name
@@ -80,14 +80,14 @@ class ElementParser:
             try:
                 for key_value_pair in element.find('Variable_List').text.split(','):
                     key, value = key_value_pair.split('=')
-                    if key == 'PBS_O_HOME':
+                    if key == var_name:
                         return value
             except:
                 return None
 
         return parse_function
 
-    @staticfunction
+    @static
     def parse_master_host(element):
         """
         Given an element, parse element's 'exec_host' child
@@ -107,36 +107,36 @@ class ElementParser:
     This is a mapping from each showjobs field -> function to parse an lxml element
     Eg. if we want to parse 'element' for 'Job Id', we would run:
       field_name_to_parse_function['Job Id'](element)
-    This looks up the appropriate function for 'Job Id', and then uses it to parse 'element' for the required text
+    This looks up the appropriate function for 'Job Id', and then calls that function on 'element' to return text
     Each parse function will return None if we can't find the required field
     """
     field_name_to_parse_function = dict([
-        ('Job Id', path_lookup('Job_Id')),
-        ('Job Name', path_lookup('Job_Name')),
-        ('Output File', path_lookup('Output_Path')),
-        ('Error File', path_lookup('Error_Path')),
-        ('Submit Arguments', path_lookup('submit_args')),
-        ('User Name', path_lookup('euser')),
-        ('Group Name', path_lookup('egroup')),
-        ('Account Name', path_lookup('comp_time')),
-        ('Queue Name', path_lookup('queue')),
-        ('Quality Of Service', path_lookup('Resource_List/qos')),
-        ('Architecture', path_lookup('Resource_List/arch')),
-        ('Operating System', path_lookup('Resource_List/opsys')),
-        ('Wallclock Limit', path_lookup('Resource_List/walltime')),
-        ('Wallclock Duration', path_lookup('resources_used/walltime')),
-        ('CPUTime', path_lookup('resources_used/cput')),
-        ('Memory Used', path_lookup('resources_used/mem')),
-        ('Memory Limit', path_lookup('Resource_List/mem')),
-        ('vmem Used', path_lookup('resources_used/vmem')),
-        ('vmem Limit', path_lookup('Resource_List/vmem')),
-        ('Submit Time', path_lookup('qtime')),
-        ('Start Time', path_lookup('start_time')),
-        ('End Time', path_lookup('comp_time')),
-        ('Exit Code', path_lookup('exit_status')),
-        ('Interactive', path_lookup('format_interactive')),
-        ('Job Dependencies', path_lookup('depend')),
-        ('Job Script', path_lookup('job_script')),
+        ('Job Id', parse_path('Job_Id')),
+        ('Job Name', parse_path('Job_Name')),
+        ('Output File', parse_path('Output_Path')),
+        ('Error File', parse_path('Error_Path')),
+        ('Submit Arguments', parse_path('submit_args')),
+        ('User Name', parse_path('euser')),
+        ('Group Name', parse_path('egroup')),
+        ('Account Name', parse_path('comp_time')),
+        ('Queue Name', parse_path('queue')),
+        ('Quality Of Service', parse_path('Resource_List/qos')),
+        ('Architecture', parse_path('Resource_List/arch')),
+        ('Operating System', parse_path('Resource_List/opsys')),
+        ('Wallclock Limit', parse_path('Resource_List/walltime')),
+        ('Wallclock Duration', parse_path('resources_used/walltime')),
+        ('CPUTime', parse_path('resources_used/cput')),
+        ('Memory Used', parse_path('resources_used/mem')),
+        ('Memory Limit', parse_path('Resource_List/mem')),
+        ('vmem Used', parse_path('resources_used/vmem')),
+        ('vmem Limit', parse_path('Resource_List/vmem')),
+        ('Submit Time', parse_path('qtime')),
+        ('Start Time', parse_path('start_time')),
+        ('End Time', parse_path('comp_time')),
+        ('Exit Code', parse_path('exit_status')),
+        ('Interactive', parse_path('format_interactive')),
+        ('Job Dependencies', parse_path('depend')),
+        ('Job Script', parse_path('job_script')),
         ('Home Directory', parse_var_list('PBS_O_HOME')),
         ('Working Directory', parse_var_list('PBS_O_WORKDIR')),
         ('Master Host', parse_master_host)
@@ -153,8 +153,8 @@ class ElementParser:
         """
         dictionary = dict()
 
-        for field_name, parse_method in cls.field_name_to_parse_function.items():
-            parsed_result = parse_method(element)
+        for field_name, parse_function in cls.field_name_to_parse_function.items():
+            parsed_result = parse_function(element)
             if parsed_result is not None:
                 dictionary[field_name] = parsed_result
 
@@ -172,27 +172,30 @@ class ElementDisplayer:
     Call ElementDisplayer.display_dict(dictionary) on a dictionary with the 'showjobs' fields defined
       to return a string representation of this showjobs entry
     """
-    @staticfunction
+    @static
     def format_default(value):
-        """Identity function"""
+        """
+        Default formatter
+        """
         return value
 
-    @staticfunction
+    @static
     def format_duration(seconds):
         """
-        Format seconds as dd:hh:mm:ss
+        Format a duration in seconds
 
-        Remove the 'dd:' part if the number of days == 0
+        Use format dd:hh:mm:ss
+        Remote the 'dd:' part if the number of days == 0
         :param seconds: str
         :return: str
         """
         td = timedelta(seconds=int(seconds))
         return ('{:02d}:'.format(td.days) if td.days > 0 else '') + time.strftime('%H:%M:%S', time.gmtime(td.seconds))
 
-    @staticfunction
+    @static
     def format_mem(mem):
         """
-        Format a memory size for display_dict
+        Format a memory size
 
         Eg. 9373440kb -> 8.9Gb
         :param mem: str
@@ -212,10 +215,10 @@ class ElementDisplayer:
 
         return mem
 
-    @staticfunction
+    @static
     def format_date(date):
         """
-        Return a string representation of a date given in seconds
+        Format a date
 
         :param date: seconds as a string
         :return: str
@@ -224,10 +227,11 @@ class ElementDisplayer:
         #   Wed Oct 26 22:37:02 2016
         return datetime.fromtimestamp(int(date)).strftime('%a %b %d %H:%M;%S %Y')
 
-    @staticfunction
+    @static
     def format_interactive(value):
         """
-        If the 'Interactive' field
+        Format the 'Interactive' field
+
         The 'Interactive' field is always reported as 'True' if the field is given
         """
         return 'True'
