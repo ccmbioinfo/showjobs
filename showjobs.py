@@ -487,7 +487,8 @@ def parse_files(files, xpath, one_only=False):
         try:
             elements.extend(parse_file(file, xpath, one_only))
         except:
-            pass
+            # TODO: handle bad characters
+            print('WARNING: Could not parse file: ' + file)
 
         if one_only and len(elements) > 0:
             return elements
@@ -627,7 +628,9 @@ def main():
         usage()
         quit()
     else:
-        print(query_jobs(args))
+        text = query_jobs(args)
+        if len(text) > 0:
+            print(text)
 
 
 if __name__ == '__main__':
